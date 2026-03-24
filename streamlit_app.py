@@ -12,17 +12,27 @@ st.subheader("Telemetry Dashboard")
 uploaded_file = st.file_uploader("Upload Mission Log CSV", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    try:
+        # 🔥 Leitura robusta (resolve seu problema)
+        df = pd.read_csv(uploaded_file, sep=None, engine="python")
 
-    # 🔥 Normalização das colunas
-    df.columns = df.columns.str.strip().str.lower()
+        # 🔥 Normalização das colunas
+        df.columns = df.columns.str.strip().str.lower()
+
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        st.stop()
+
+    # Debug (pode remover depois)
+    st.write("Colunas detectadas:", df.columns)
 
     # Validação de colunas obrigatórias
     required_columns = ['timestamp', 'depth']
-    for col in required_columns:
-        if col not in df.columns:
-            st.error(f"Missing required column: {col}")
-            st.stop()
+    missing = [col for col in required_columns if col not in df.columns]
+
+    if missing:
+        st.error(f"Missing required columns: {missing}")
+        st.stop()
 
     # Preview dos dados
     st.subheader("Mission Data Preview")
