@@ -13,11 +13,21 @@ uploaded_file = st.file_uploader("Upload Mission Log CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # 🔥 Leitura robusta (resolve seu problema)
+        # 🔥 Tentativa automática (detecta separador)
         df = pd.read_csv(uploaded_file, sep=None, engine="python")
 
-        # 🔥 Normalização das colunas
+        # 🔥 Se vier tudo em uma coluna → força separador brasileiro (;)
+        if len(df.columns) == 1:
+            uploaded_file.seek(0)  # volta pro início do arquivo
+            df = pd.read_csv(uploaded_file, sep=";")
+
+        # 🔥 Normaliza nomes das colunas
         df.columns = df.columns.str.strip().str.lower()
+
+        # 🔥 Corrige possíveis nomes de timestamp
+        for col in df.columns:
+            if 'time' in col:
+                df.rename(columns={col: 'timestamp'}, inplace=True)
 
     except Exception as e:
         st.error(f"Error reading file: {e}")
@@ -37,6 +47,9 @@ if uploaded_file is not None:
     # Preview dos dados
     st.subheader("Mission Data Preview")
     st.dataframe(df)
+
+    # Converte timestamp (boa prática)
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
     # Gráfico de profundidade ao longo do tempo
     fig = px.line(df, x='timestamp', y='depth', title='Depth Over Time')
