@@ -44,10 +44,10 @@ if uploaded_file is not None:
         st.error(f"Error reading file: {e}")
         st.stop()
 
-    # Debug (pode remover depois)
+    # Debug
     st.write("Colunas detectadas:", list(df.columns))
 
-    # Validação de colunas obrigatórias
+    # Validação
     required_columns = ['timestamp', 'depth']
     missing = [col for col in required_columns if col not in df.columns]
 
@@ -55,12 +55,27 @@ if uploaded_file is not None:
         st.error(f"Missing required columns: {missing}")
         st.stop()
 
-    # Preview dos dados
+    # 🔥 Converte timestamp (ANTES do filtro)
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+
+    # Preview
     st.subheader("Mission Data Preview")
     st.dataframe(df)
 
-    # Converte timestamp
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+    # 🔥 FILTRO DE TEMPO (CORRIGIDO)
+    st.subheader("Time Filter")
+
+    min_date = df['timestamp'].min()
+    max_date = df['timestamp'].max()
+
+    start_date = st.date_input("Start Date", min_date)
+    end_date = st.date_input("End Date", max_date)
+
+    if start_date and end_date:
+        df = df[
+            (df['timestamp'] >= pd.to_datetime(start_date)) &
+            (df['timestamp'] <= pd.to_datetime(end_date))
+        ]
 
     # Gráfico
     fig = px.line(df, x='timestamp', y='depth', title='Depth Over Time')
