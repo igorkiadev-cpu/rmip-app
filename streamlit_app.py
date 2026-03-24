@@ -72,20 +72,19 @@ if uploaded_file is not None:
     st.subheader("Mission Data Preview")
     st.dataframe(df)
 
-    # 🔥 FILTRO DE TEMPO
+    # 🔥 FILTRO DE TEMPO (CORRIGIDO PROFISSIONAL)
     st.subheader("Time Filter")
 
-    min_date = df['timestamp'].min()
-    max_date = df['timestamp'].max()
+    min_date = df['timestamp'].min().date()
+    max_date = df['timestamp'].max().date()
 
     start_date = st.date_input("Start Date", min_date)
     end_date = st.date_input("End Date", max_date)
 
-    if start_date and end_date:
-        df = df[
-            (df['timestamp'] >= pd.to_datetime(start_date)) &
-            (df['timestamp'] <= pd.to_datetime(end_date))
-        ]
+    df = df[
+        (df['timestamp'].dt.date >= start_date) &
+        (df['timestamp'].dt.date <= end_date)
+    ]
 
     # 🔥 PROTEÇÃO GLOBAL
     if df.empty:
@@ -118,7 +117,7 @@ if uploaded_file is not None:
     if max_depth > 200:
         st.error("Depth exceeded safe operational limit!")
 
-    # 🌐 3D VISUALIZAÇÃO
+    # 🌐 3D
     if all(col in df.columns for col in ['latitude', 'longitude', 'depth']):
         df_3d = df.dropna(subset=['latitude', 'longitude', 'depth'])
 
@@ -144,7 +143,7 @@ if uploaded_file is not None:
         else:
             st.warning("No valid data for 3D visualization")
 
-    # 🌍 MAPA (ROBUSTO)
+    # 🌍 MAPA
     if all(col in df.columns for col in ['latitude', 'longitude']):
         df_map = df.dropna(subset=['latitude', 'longitude'])
 
@@ -169,7 +168,7 @@ if uploaded_file is not None:
         else:
             st.warning("No valid GPS data to display map")
 
-    # 📍 COVERAGE (ROBUSTO)
+    # 📍 COVERAGE
     if all(col in df.columns for col in ['latitude', 'longitude']):
         st.subheader("Mission Coverage Analysis")
 
