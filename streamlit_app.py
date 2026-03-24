@@ -13,29 +13,32 @@ st.markdown("""
 Analyze ROV mission telemetry data, detect anomalies, and visualize subsea operations in real time.
 """)
 
-# Upload do arquivo CSV
+# Upload
 st.info("Upload a CSV file with columns like: timestamp, depth, latitude, longitude, signal_quality")
 uploaded_file = st.file_uploader("Upload Mission Log CSV", type=["csv"])
 
+# 🔥 CACHE (upgrade profissional)
+@st.cache_data
+def load_data(file):
+    df = pd.read_csv(file, sep=None, engine="python")
+    if len(df.columns) == 1:
+        file.seek(0)
+        df = pd.read_csv(file, sep=";")
+    return df
+
 if uploaded_file is not None:
     try:
-        # 🔥 Detecta separador automaticamente
-        df = pd.read_csv(uploaded_file, sep=None, engine="python")
+        df = load_data(uploaded_file)
 
-        # 🔥 Se vier tudo em uma coluna → força ;
-        if len(df.columns) == 1:
-            uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, sep=";")
-
-        # 🔥 Normaliza colunas
+        # Normaliza colunas
         df.columns = df.columns.str.strip().str.lower()
 
-        # 🔥 Corrige timestamp automaticamente
+        # Corrige timestamp
         for col in df.columns:
             if 'time' in col:
                 df.rename(columns={col: 'timestamp'}, inplace=True)
 
-        # 🔥 Corrige depth automaticamente
+        # Corrige depth
         for col in df.columns:
             if 'depth' in col or 'profundidade' in col or col == 'z':
                 df.rename(columns={col: 'depth'}, inplace=True)
@@ -44,7 +47,6 @@ if uploaded_file is not None:
         st.error(f"Error reading file: {e}")
         st.stop()
 
-    # Debug
     st.write("Colunas detectadas:", list(df.columns))
 
     # Validação
@@ -55,14 +57,14 @@ if uploaded_file is not None:
         st.error(f"Missing required columns: {missing}")
         st.stop()
 
-    # 🔥 Converte timestamp (ANTES do filtro)
+    # Timestamp
     df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
     # Preview
     st.subheader("Mission Data Preview")
     st.dataframe(df)
 
-    # 🔥 FILTRO DE TEMPO (CORRIGIDO)
+    # 🔥 FILTRO DE TEMPO
     st.subheader("Time Filter")
 
     min_date = df['timestamp'].min()
@@ -81,7 +83,7 @@ if uploaded_file is not None:
     fig = px.line(df, x='timestamp', y='depth', title='Depth Over Time')
     st.plotly_chart(fig, use_container_width=True)
 
-    # Métricas
+    # KPIs
     max_depth = df['depth'].max()
     mean_depth = df['depth'].mean()
 
@@ -123,6 +125,26 @@ if uploaded_file is not None:
             )
         )
         st.plotly_chart(fig_3d, use_container_width=True)
+
+    # 🌍 MAPA (NOVO)
+    if all(col in df.columns for col in ['latitude', 'longitude']):
+        st.subheader("ROV Mission Map")
+
+        fig_map = px.line_mapbox(
+            df,
+            lat="latitude",
+            lon="longitude",
+            hover_data=["depth"] if "depth" in df.columns else None,
+            zoom=10,
+            height=500
+        )
+
+        fig_map.update_layout(
+            mapbox_style="open-street-map",
+            margin={"r":0,"t":0,"l":0,"b":0}
+        )
+
+        st.plotly_chart(fig_map, use_container_width=True)
 
     # Coverage
     if all(col in df.columns for col in ['latitude', 'longitude']):
