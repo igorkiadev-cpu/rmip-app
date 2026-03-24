@@ -72,7 +72,7 @@ if uploaded_file is not None:
     st.subheader("Mission Data Preview")
     st.dataframe(df)
 
-    # 🔥 FILTRO DE TEMPO SEGURO
+    # 🔥 FILTRO DE TEMPO
     st.subheader("Time Filter")
 
     min_date = df['timestamp'].min()
@@ -87,16 +87,16 @@ if uploaded_file is not None:
             (df['timestamp'] <= pd.to_datetime(end_date))
         ]
 
-    # 🔥 PROTEÇÃO CONTRA DATAFRAME VAZIO
+    # 🔥 PROTEÇÃO GLOBAL
     if df.empty:
         st.warning("No data available for selected date range")
         st.stop()
 
-    # Gráfico
+    # 📈 GRÁFICO
     fig = px.line(df, x='timestamp', y='depth', title='Depth Over Time')
     st.plotly_chart(fig, use_container_width=True)
 
-    # KPIs
+    # 📊 KPIs
     max_depth = df['depth'].max()
     mean_depth = df['depth'].mean()
 
@@ -111,62 +111,77 @@ if uploaded_file is not None:
     if signal_loss is not None:
         col3.metric("Signal Loss (%)", round(signal_loss, 2))
 
-    # Alerts
+    # ⚠️ ALERTAS
     st.subheader("Operational Alerts")
     if signal_loss is not None and signal_loss > 10:
         st.warning(f"High signal loss detected: {signal_loss:.2f}%")
     if max_depth > 200:
         st.error("Depth exceeded safe operational limit!")
 
-    # 3D
+    # 🌐 3D VISUALIZAÇÃO
     if all(col in df.columns for col in ['latitude', 'longitude', 'depth']):
-        st.subheader("3D Mission Visualization")
-        fig_3d = go.Figure(data=[go.Scatter3d(
-            x=df['longitude'],
-            y=df['latitude'],
-            z=df['depth'],
-            mode='lines+markers',
-            marker=dict(size=3),
-            line=dict(width=4)
-        )])
-        fig_3d.update_layout(
-            scene=dict(
-                zaxis=dict(autorange="reversed"),
-                xaxis_title='Longitude',
-                yaxis_title='Latitude',
-                zaxis_title='Depth'
+        df_3d = df.dropna(subset=['latitude', 'longitude', 'depth'])
+
+        if not df_3d.empty:
+            st.subheader("3D Mission Visualization")
+            fig_3d = go.Figure(data=[go.Scatter3d(
+                x=df_3d['longitude'],
+                y=df_3d['latitude'],
+                z=df_3d['depth'],
+                mode='lines+markers',
+                marker=dict(size=3),
+                line=dict(width=4)
+            )])
+            fig_3d.update_layout(
+                scene=dict(
+                    zaxis=dict(autorange="reversed"),
+                    xaxis_title='Longitude',
+                    yaxis_title='Latitude',
+                    zaxis_title='Depth'
+                )
             )
-        )
-        st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(fig_3d, use_container_width=True)
+        else:
+            st.warning("No valid data for 3D visualization")
 
-    # 🌍 MAPA
+    # 🌍 MAPA (ROBUSTO)
     if all(col in df.columns for col in ['latitude', 'longitude']):
-        st.subheader("ROV Mission Map")
+        df_map = df.dropna(subset=['latitude', 'longitude'])
 
-        fig_map = px.line_mapbox(
-            df,
-            lat="latitude",
-            lon="longitude",
-            hover_data=["depth"] if "depth" in df.columns else None,
-            zoom=10,
-            height=500
-        )
+        if not df_map.empty:
+            st.subheader("ROV Mission Map")
 
-        fig_map.update_layout(
-            mapbox_style="open-street-map",
-            margin={"r":0,"t":0,"l":0,"b":0}
-        )
+            fig_map = px.line_mapbox(
+                df_map,
+                lat="latitude",
+                lon="longitude",
+                hover_data=["depth"] if "depth" in df_map.columns else None,
+                zoom=10,
+                height=500
+            )
 
-        st.plotly_chart(fig_map, use_container_width=True)
+            fig_map.update_layout(
+                mapbox_style="open-street-map",
+                margin={"r":0,"t":0,"l":0,"b":0}
+            )
 
-    # Coverage
+            st.plotly_chart(fig_map, use_container_width=True)
+        else:
+            st.warning("No valid GPS data to display map")
+
+    # 📍 COVERAGE (ROBUSTO)
     if all(col in df.columns for col in ['latitude', 'longitude']):
         st.subheader("Mission Coverage Analysis")
 
-        lat_bins = pd.cut(df['latitude'], bins=10)
-        lon_bins = pd.cut(df['longitude'], bins=10)
+        df_cov = df.dropna(subset=['latitude', 'longitude'])
 
-        coverage = df.groupby([lat_bins, lon_bins]).size().reset_index(name='count')
-        coverage_percent = (len(coverage) / (10 * 10)) * 100
+        if not df_cov.empty:
+            lat_bins = pd.cut(df_cov['latitude'], bins=10)
+            lon_bins = pd.cut(df_cov['longitude'], bins=10)
 
-        st.metric("Coverage (%)", round(coverage_percent, 2))
+            coverage = df_cov.groupby([lat_bins, lon_bins]).size().reset_index(name='count')
+            coverage_percent = (len(coverage) / (10 * 10)) * 100
+
+            st.metric("Coverage (%)", round(coverage_percent, 2))
+        else:
+            st.warning("No valid location data for coverage analysis")
