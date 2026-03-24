@@ -6,35 +6,46 @@ import plotly.graph_objects as go
 st.set_page_config(layout="wide")
 
 st.title("ROV Mission Intelligence Platform (RMIP)")
-st.subheader("Telemetry Dashboard")
+st.subheader("ROV Operational Intelligence Dashboard")
+
+# 🔥 Descrição profissional
+st.markdown("""
+Analyze ROV mission telemetry data, detect anomalies, and visualize subsea operations in real time.
+""")
 
 # Upload do arquivo CSV
+st.info("Upload a CSV file with columns like: timestamp, depth, latitude, longitude, signal_quality")
 uploaded_file = st.file_uploader("Upload Mission Log CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # 🔥 Tentativa automática (detecta separador)
+        # 🔥 Detecta separador automaticamente
         df = pd.read_csv(uploaded_file, sep=None, engine="python")
 
-        # 🔥 Se vier tudo em uma coluna → força separador brasileiro (;)
+        # 🔥 Se vier tudo em uma coluna → força ;
         if len(df.columns) == 1:
-            uploaded_file.seek(0)  # volta pro início do arquivo
+            uploaded_file.seek(0)
             df = pd.read_csv(uploaded_file, sep=";")
 
-        # 🔥 Normaliza nomes das colunas
+        # 🔥 Normaliza colunas
         df.columns = df.columns.str.strip().str.lower()
 
-        # 🔥 Corrige possíveis nomes de timestamp
+        # 🔥 Corrige timestamp automaticamente
         for col in df.columns:
             if 'time' in col:
                 df.rename(columns={col: 'timestamp'}, inplace=True)
+
+        # 🔥 Corrige depth automaticamente
+        for col in df.columns:
+            if 'depth' in col or 'profundidade' in col or col == 'z':
+                df.rename(columns={col: 'depth'}, inplace=True)
 
     except Exception as e:
         st.error(f"Error reading file: {e}")
         st.stop()
 
     # Debug (pode remover depois)
-    st.write("Colunas detectadas:", df.columns)
+    st.write("Colunas detectadas:", list(df.columns))
 
     # Validação de colunas obrigatórias
     required_columns = ['timestamp', 'depth']
@@ -48,24 +59,22 @@ if uploaded_file is not None:
     st.subheader("Mission Data Preview")
     st.dataframe(df)
 
-    # Converte timestamp (boa prática)
+    # Converte timestamp
     df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
-    # Gráfico de profundidade ao longo do tempo
+    # Gráfico
     fig = px.line(df, x='timestamp', y='depth', title='Depth Over Time')
     st.plotly_chart(fig, use_container_width=True)
 
-    # Métricas básicas
+    # Métricas
     max_depth = df['depth'].max()
     mean_depth = df['depth'].mean()
 
-    # Cálculo de Signal Loss (%)
     if 'signal_quality' in df.columns:
         signal_loss = (df['signal_quality'] < 50).sum() / len(df) * 100
     else:
         signal_loss = None
 
-    # KPIs
     col1, col2, col3 = st.columns(3)
     col1.metric("Max Depth (m)", round(max_depth, 2))
     col2.metric("Mean Depth (m)", round(mean_depth, 2))
@@ -79,7 +88,7 @@ if uploaded_file is not None:
     if max_depth > 200:
         st.error("Depth exceeded safe operational limit!")
 
-    # 3D Mission Visualization
+    # 3D
     if all(col in df.columns for col in ['latitude', 'longitude', 'depth']):
         st.subheader("3D Mission Visualization")
         fig_3d = go.Figure(data=[go.Scatter3d(
@@ -100,7 +109,7 @@ if uploaded_file is not None:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
-    # Mission Coverage Analysis
+    # Coverage
     if all(col in df.columns for col in ['latitude', 'longitude']):
         st.subheader("Mission Coverage Analysis")
         lat_bins = pd.cut(df['latitude'], bins=10)
